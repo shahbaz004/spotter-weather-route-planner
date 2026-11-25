@@ -1,0 +1,19 @@
+{
+  "name": "spotter-route-planner",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite frontend",
+    "build": "vite build frontend"
+  },
+  "dependencies": {
+    "leaflet": "1.9.4",
+    "leaflet.heat": "0.2.0",
+    "react": "19.2.8",
+    "react-dom": "19.2.8"
+  },
+  "devDependencies": {
+    "vite": "7.3.8"
+  }
+}
