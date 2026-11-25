@@ -192,8 +192,11 @@ function App() {
                 {trip.recommended === route.id && <span className="recommended">Recommended</span>}
                 <span className="route-time">{duration(route.seconds)} <small>· {miles(route.miles)} mi</small></span>
                 <span className="arrival">Arrives {time(route.eta)}</span>
-                <span className="risk-miles">{miles(route.riskMiles[3])} Severe mi <span>·</span> {miles(route.riskMiles[2])} High mi
-                  {route.riskMiles[4] > 0 && <> · {miles(route.riskMiles[4])} No Travel mi</>}</span>
+                <span className="risk-bar" role="img" aria-label={risks.map((name, level) => `${miles(route.riskMiles[level])} ${name} miles`).join(', ')}>
+                  {route.riskMiles.map((value, level) => value > 0 &&
+                    <i key={level} style={{ flexGrow: value, backgroundColor: colors[level] }} />)}</span>
+                <span className="risk-miles">{risks.map((name, level) => (level < 4 || route.riskMiles[level] > 0) &&
+                  <span key={level}><b style={{ backgroundColor: colors[level] }} />{miles(route.riskMiles[level])} {name}</span>)}</span>
                 {!route.complete && <span className="explanation">Some checkpoints have no forecast.</span>}
                 {route.blocked && <span className="explanation">A checkpoint exceeds a No Travel threshold.</span>}
                 {recommendation(trip, route) && <span className="explanation">{recommendation(trip, route)}</span>}

@@ -66,3 +66,8 @@ input[type=checkbox],input[type=range]{accent-color:var(--accent)}
 @media(max-width:1050px){.trip-form{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:690px){main{padding:20px 12px 30px}header{padding:0 14px}.trip-form{grid-template-columns:repeat(2,minmax(0,1fr));padding:11px}.workspace{grid-template-columns:1fr}.map-panel{grid-row:1}.map{height:340px}.trip-status{padding:5px 0}.route-time{font-size:18px}}
 .leaflet-tile-pane{filter:invert(1) hue-rotate(180deg) brightness(.85) contrast(.9) saturate(.5)}
+.risk-bar{display:flex;height:6px;border-radius:3px;overflow:hidden;gap:1px;background:var(--border)}
+.risk-bar i{display:block;min-width:2px}
+.risk-miles{display:flex;flex-wrap:wrap;gap:2px 12px}
+.risk-miles span{display:inline-flex;align-items:center;gap:5px}
+.risk-miles b{width:7px;height:7px;border-radius:50%}
