@@ -47,3 +47,18 @@ class PlanningTests(unittest.TestCase):
              "averageRisk": 2, "seconds": 200}
         b = {**a, "riskMiles": [0, 0, 0, 1, 0], "averageRisk": 1, "seconds": 10}
         self.assertEqual(rank([b, a]), [a, b])
+
+
+class GeocodeTests(unittest.TestCase):
+    def test_prefers_city_over_same_named_foreign_street(self):
+        from unittest.mock import patch
+        from spotter.providers import geocode
+
+        street = {"type": "Street", "score": 4.6, "position": {"lat": 45.0, "lon": -75.0},
+                  "address": {"freeformAddress": "Cheyenne Way, Nepean ON"}}
+        city = {"type": "Geography", "score": 4.4, "position": {"lat": 41.1, "lon": -104.8},
+                "address": {"freeformAddress": "Cheyenne, WY"}}
+        responses = lambda url, params, service: {"results": [city] if "idxSet" in params else [street]}
+        with patch("spotter.providers.request_json", responses):
+            self.assertEqual(geocode("Cheyenne, WY", "k")[1], "Cheyenne, WY")
+            self.assertEqual(geocode("12 Cheyenne Way", "k")[1], "Cheyenne Way, Nepean ON")

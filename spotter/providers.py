@@ -22,12 +22,19 @@ def request_json(url, parameters, service):
 
 
 def geocode(query, key):
-    response = request_json(
-        f"https://api.tomtom.com/search/2/geocode/{quote(query, safe='')}.json",
-        {"key": key, "limit": 1}, "Geocoding")
-    if not response["results"]:
+    url = f"https://api.tomtom.com/search/2/geocode/{quote(query, safe='')}.json"
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        general = pool.submit(request_json, url, {"key": key, "limit": 5}, "Geocoding")
+        places = pool.submit(request_json, url, {"key": key, "limit": 5, "idxSet": "Geo"}, "Geocoding")
+        results, place_results = general.result()["results"], places.result()["results"]
+    if not results:
         raise ValueError(f"No location found for {query}.")
-    result = response["results"][0]
+    result = results[0]
+    # A plain place name like "Cheyenne, WY" can rank a same-named street (even in another
+    # country) first, so prefer a comparable city/region match unless the input has a street number.
+    if (place_results and result["type"] != "Geography" and not any(c.isdigit() for c in query)
+            and place_results[0]["score"] >= 0.75 * result["score"]):
+        result = place_results[0]
     point = result["position"]
     return f'{point["lat"]},{point["lon"]}', result["address"]["freeformAddress"]
 
