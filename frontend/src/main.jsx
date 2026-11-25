@@ -6,8 +6,8 @@ import 'leaflet/dist/leaflet.css';
 import './style.css';
 
 const risks = ['Low', 'Moderate', 'High', 'Severe', 'No Travel'];
-const colors = ['#218370', '#ad7612', '#bf5321', '#bd3455', '#70265c'];
-const unknown = '#667781';
+const colors = ['#2fd4a3', '#f0b429', '#f48b32', '#ff5c7a', '#b86bd1'];
+const unknown = '#8fa9b6';
 const localDate = (date) => new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 const time = (seconds) => new Intl.DateTimeFormat(undefined, { dateStyle: 'medium', timeStyle: 'short' }).format(seconds * 1000);
 const miles = (value) => Number(value).toLocaleString(undefined, { maximumFractionDigits: 1 });
@@ -54,8 +54,8 @@ function MapView({ trip, selected, onSelect, hour, showHeat }) {
     const ordered = [...trip.routes].sort((a, b) => Number(a.id === selected) - Number(b.id === selected));
     for (const route of ordered) {
       const active = route.id === selected;
-      const color = route.blocked ? colors[4] : active ? '#17675d' : '#5c6f83';
-      L.polyline(route.geometry, { color: '#ffffff', opacity: 0.92, weight: active ? 9 : 6, interactive: false }).addTo(layer);
+      const color = route.blocked ? colors[4] : active ? '#1ed6a4' : '#7f98a8';
+      L.polyline(route.geometry, { color: '#0b1c2b', opacity: 0.85, weight: active ? 9 : 6, interactive: false }).addTo(layer);
       L.polyline(route.geometry, { color, opacity: active ? 1 : 0.77, weight: active ? 6 : 3,
         dashArray: route.blocked ? '6 6' : null }).addTo(layer).on('click', () => onSelect(route.id));
       for (const checkpoint of route.checkpoints) {
@@ -77,7 +77,7 @@ function MapView({ trip, selected, onSelect, hour, showHeat }) {
           detail.append(reason);
         }
         L.circleMarker(checkpoint.point, { radius: active ? 6 : 4, fillColor: colors[checkpoint.risk] ?? unknown,
-          color: '#fff', weight: active ? 2 : 1, fillOpacity: active ? 1 : 0.75 }).bindPopup(detail).addTo(layer);
+          color: '#0b1c2b', weight: active ? 2 : 1, fillOpacity: active ? 1 : 0.75 }).bindPopup(detail).addTo(layer);
       }
     }
   }, [trip, selected, onSelect]);
@@ -85,7 +85,7 @@ function MapView({ trip, selected, onSelect, hour, showHeat }) {
   useEffect(() => {
     if (!trip || !showHeat) return;
     heat.current = L.heatLayer([], { pane: 'weather', radius: 35, blur: 26, maxZoom: 9, max: 1,
-      gradient: { 0.15: '#218370', 0.38: '#e3b84a', 0.58: '#f48b32', 0.8: '#d34259', 1: '#70265c' },
+      gradient: { 0.15: '#2fd4a3', 0.38: '#f0b429', 0.58: '#f48b32', 0.8: '#ff5c7a', 1: '#b86bd1' },
     }).addTo(map.current);
     return () => { heat.current.remove(); heat.current = null; };
   }, [trip, showHeat]);
@@ -157,7 +157,7 @@ function App() {
   }
 
   return <>
-    <header><div className="brand"><span className="brand-mark" aria-hidden="true">↗</span><strong>Spotter</strong></div>
+    <header><div className="brand"><span className="brand-mark" aria-hidden="true"><i /><i /><i /></span><strong>spotter</strong></div>
       <span className="header-label">Weather route planner</span></header>
     <main>
       <section className="intro"><h1>Plan a weather-aware trip</h1>
