@@ -62,3 +62,16 @@ class GeocodeTests(unittest.TestCase):
         with patch("spotter.providers.request_json", responses):
             self.assertEqual(geocode("Cheyenne, WY", "k")[1], "Cheyenne, WY")
             self.assertEqual(geocode("12 Cheyenne Way", "k")[1], "Cheyenne Way, Nepean ON")
+
+
+class WeatherServiceTests(unittest.TestCase):
+    def test_nws_intervals_become_hourly_rates(self):
+        from spotter.providers import nws_series
+
+        layer = {"values": [{"validTime": "2026-11-26T00:00:00+00:00/PT6H", "value": 6},
+                            {"validTime": "2026-11-26T06:00:00+00:00/P1DT2H", "value": None}]}
+        series = nws_series(layer, rate=False)
+        self.assertEqual(len(series), 6)
+        self.assertEqual(set(series.values()), {1})
+        self.assertEqual(nws_series({"values": [{"validTime": "2026-11-26T00:00:00+00:00/PT2H", "value": 9}]}, rate=True),
+                         {1795651200: 9, 1795654800: 9})

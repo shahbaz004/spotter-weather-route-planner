@@ -1,12 +1,13 @@
 import json
 import logging
 import os
+import re
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from urllib.error import HTTPError, URLError
 from urllib.parse import quote, urlencode
-from urllib.request import urlopen
+from urllib.request import Request, urlopen
 
 from .planning import distance
 
@@ -111,6 +112,73 @@ def forecast_batch(points):
     return result
 
 
+NWS_HEADERS = {"User-Agent": "spotter-weather-route-planner (https://github.com/shahbaz004/spotter-weather-route-planner)",
+               "Accept": "application/geo+json"}
+KMH_TO_MPH = 0.621371
+MM_PER_INCH = 25.4
+
+
+def nws_json(url):
+    for attempt in range(3):
+        try:
+            with urlopen(Request(url, headers=NWS_HEADERS), timeout=20) as response:
+                return json.load(response)
+        except HTTPError as error:
+            if error.code == 404:
+                return None
+            logger.warning("National Weather Service returned HTTP %s for %s", error.code, url)
+        except (URLError, TimeoutError, ValueError) as error:
+            logger.warning("National Weather Service request failed: %r", error)
+        time.sleep(0.5 + attempt)
+    return None
+
+
+def nws_series(layer, rate):
+    """Spread NWS interval values (ISO start/duration) onto hourly timestamps; amounts become per-hour rates."""
+    series = {}
+    for entry in layer["values"]:
+        if entry["value"] is None:
+            continue
+        start, duration = entry["validTime"].split("/")
+        days, hours = re.fullmatch(r"P(?:(\d+)D)?(?:T(?:(\d+)H)?)?", duration).groups()
+        hours = int(days or 0) * 24 + int(hours or 0)
+        begin = round(datetime.fromisoformat(start).timestamp())
+        for step in range(hours):
+            series[begin + step * 3600] = entry["value"] if rate else entry["value"] / hours
+    return series
+
+
+def nws_forecast(point):
+    """Hourly (wind mph, rain in/hr, snow in/hr) like forecast_batch; None when NWS has no data (outside the US)."""
+    from django.core.cache import cache
+
+    grid_key_name = f"nws-grid:{point[0]}:{point[1]}"
+    grid = cache.get(grid_key_name)
+    if grid is None:
+        location = nws_json(f"https://api.weather.gov/points/{point[0]:.4f},{point[1]:.4f}")
+        grid = location["properties"]["forecastGridData"] if location else ""
+        cache.set(grid_key_name, grid, timeout=86400)
+    if not grid:
+        return None
+    data = cache.get(f"nws-data:{grid}")
+    if data is None:
+        data = nws_json(grid)
+        if data is None:
+            return None
+        cache.set(f"nws-data:{grid}", data, timeout=900)
+    layers = data["properties"]
+    wind = nws_series(layers["windSpeed"], rate=True)
+    precipitation = nws_series(layers["quantitativePrecipitation"], rate=False)
+    snowfall = nws_series(layers["snowfallAmount"], rate=False)
+    # Precipitation for the hour starting at `hour` is keyed at its end, matching Open-Meteo.
+    amounts = {}
+    for hour in precipitation.keys() | snowfall.keys():
+        snow_mm = snowfall.get(hour, 0)
+        rain_mm = max(0, precipitation.get(hour, 0) - snow_mm / 10)
+        amounts[hour + 3600] = (rain_mm / MM_PER_INCH, snow_mm / MM_PER_INCH)
+    return {hour: (speed * KMH_TO_MPH, *amounts.get(hour, (0, 0))) for hour, speed in wind.items()}
+
+
 def live_forecast(points):
     from django.core.cache import cache
 
@@ -118,11 +186,23 @@ def live_forecast(points):
     cached = cache.get_many(keys.values())
     result = {point: cached[key] for point, key in keys.items() if key in cached}
     missing = [point for point in points if point not in result]
-    with ThreadPoolExecutor(max_workers=4) as pool:
-        batches = [missing[i:i + 60] for i in range(0, len(missing), 60)]
-        for batch in pool.map(forecast_batch, batches):
-            result.update(batch)
-            cache.set_many({keys[point]: data for point, data in batch.items()}, timeout=900)
+    batches = [missing[i:i + 60] for i in range(0, len(missing), 60)]
+    try:
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            for batch in pool.map(forecast_batch, batches):
+                result.update(batch)
+                cache.set_many({keys[point]: data for point, data in batch.items()}, timeout=900)
+    except ProviderError:
+        # Open-Meteo's free tier is limited per IP address, which shared hosts can exhaust.
+        logger.warning("Open-Meteo unavailable; falling back to the National Weather Service")
+        missing = [point for point in missing if point not in result]
+        with ThreadPoolExecutor(max_workers=12) as pool:
+            for point, data in zip(missing, pool.map(nws_forecast, missing)):
+                if data:
+                    result[point] = data
+                    cache.set(keys[point], data, timeout=900)
+        if not result:
+            raise
     return result
 
 
