@@ -1,5 +1,7 @@
 import json
+import logging
 import os
+import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from urllib.error import HTTPError, URLError
@@ -9,16 +11,27 @@ from urllib.request import urlopen
 from .planning import distance
 
 
+logger = logging.getLogger(__name__)
+
+
 class ProviderError(Exception):
     pass
 
 
 def request_json(url, parameters, service):
-    try:
-        with urlopen(f"{url}?{urlencode(parameters, doseq=True)}", timeout=24) as response:
-            return json.load(response)
-    except (HTTPError, URLError, TimeoutError, ValueError):
-        raise ProviderError(f"{service} is unavailable. Please try again.") from None
+    for attempt in range(3):
+        try:
+            with urlopen(f"{url}?{urlencode(parameters, doseq=True)}", timeout=24) as response:
+                return json.load(response)
+        except HTTPError as error:
+            logger.warning("%s returned HTTP %s: %s", service, error.code, error.read(300))
+            if error.code not in (429, 502, 503, 504) or attempt == 2:
+                break
+            time.sleep(1 + attempt)
+        except (URLError, TimeoutError, ValueError) as error:
+            logger.warning("%s request failed: %r", service, error)
+            break
+    raise ProviderError(f"{service} is unavailable. Please try again.")
 
 
 def geocode(query, key):
