@@ -32,7 +32,7 @@ function MapView({ trip, selected, onSelect, hour, showHeat }) {
     map.current = instance;
     instance.createPane('weather').style.zIndex = 350;
     const tiles = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 19, referrerPolicy: 'strict-origin-when-cross-origin', attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
     }).addTo(instance);
     tiles.on('tileerror', () => setTileError(true));
     tiles.on('tileload', () => setTileError(false));

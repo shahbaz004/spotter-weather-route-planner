@@ -35,4 +35,6 @@ if not DEBUG:
     MIDDLEWARE.insert(1, "whitenoise.middleware.WhiteNoiseMiddleware")
 WHITENOISE_ROOT = BASE_DIR / "frontend" / "dist"
 WHITENOISE_INDEX_FILE = True
+# OpenStreetMap tile servers reject requests without a Referer, so allow the origin to be sent.
+SECURE_REFERRER_POLICY = "strict-origin-when-cross-origin"
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
